@@ -222,12 +222,16 @@
       <div class="jp" id="tjp"></div>
       <div class="tags" id="ttags"></div>
       <div class="fld">
-        <label>图片直链（可直接贴在网页 / 世界书 / 笔记里）</label>
+        <label>图片直链 · jsDelivr（贴网页 / 世界书首选）</label>
         <div class="v"><input id="cdn" readonly><button id="copycdn">复制</button></div>
       </div>
       <div class="fld">
-        <label>GitHub 原文件</label>
-        <div class="v"><input id="gh" readonly><button id="copygh">复制</button></div>
+        <label>备用直链 · ghfast（jsDelivr 打不开时用这条）</label>
+        <div class="v"><input id="ghf" readonly><button id="copyghf">复制</button></div>
+      </div>
+      <div class="fld">
+        <label>本站页面地址（可直接发给别人）</label>
+        <div class="v"><input id="pgurl" readonly><button id="copypg">复制</button></div>
       </div>
       <div class="acts">
         <a id="offi" target="_blank" rel="noopener">官方页 ↗</a>
@@ -243,8 +247,27 @@
 (function(){
   var REPO = 'hykhxy/kamen-rider-archive';
   var BRANCH = 'main';
-  var CDN = 'https://cdn.jsdelivr.net/gh/' + REPO + '@' + BRANCH + '/';
-  var RAW = 'https://raw.githubusercontent.com/' + REPO + '/' + BRANCH + '/';
+  var GH = 'https://raw.githubusercontent.com/' + REPO + '/' + BRANCH + '/';
+  // 线路表：本站相对路径 → jsDelivr → ghfast → ghproxy → GitHub 原始
+  // 国内 jsDelivr 偶尔整段不可达，页面会自动往后跳
+  var LINES = [
+    {n:'本站', f:function(p){return p;}},
+    {n:'jsDelivr', f:function(p){return 'https://cdn.jsdelivr.net/gh/' + REPO + '@' + BRANCH + '/' + p;}},
+    {n:'ghfast', f:function(p){return 'https://ghfast.top/' + GH + p;}},
+    {n:'ghproxy', f:function(p){return 'https://ghproxy.net/' + GH + p;}},
+    {n:'GitHub', f:function(p){return GH + p;}}
+  ];
+  function line(i, p){ return LINES[i].f(encodeURI(p)); }
+  function loadImg(el, path, done){
+    var i = 0;
+    function next(){
+      if(i >= LINES.length){ el.onerror = null; return; }
+      el.src = line(i++, path);
+    }
+    el.onerror = next;
+    el.onload = function(){ el.onerror = null; if(done) done(el); };
+    next();
+  }
   var PAGE = 120;
 
   var CATS = [['','全部'],['骑士','骑士'],['形态','形态'],['人物','人物'],['怪人','怪人'],['道具','道具']];
@@ -397,12 +420,7 @@
       '<span class="cat">'+esc(x.c)+'</span>'+
       '<div class="cap">'+esc(x.n)+'</div>';
     var img=d.querySelector('img');
-    img.onload=function(){img.classList.add('ok');};
-    img.onerror=function(){
-      // Pages 慢时回落到 jsDelivr
-      if(!this.dataset.r){ this.dataset.r='1'; this.src=CDN+encodeURI(x.p); }
-    };
-    img.src=encodeURI(x.p);
+    loadImg(img, x.p, function(el){ el.classList.add('ok'); });
     d.onclick=function(){ open(x); };
     return d;
   }
@@ -417,16 +435,18 @@
       (x.y?'<span class="pill">'+x.y+'</span>':'')+
       (x.e?'<span class="pill">'+x.e+'</span>':'');
     var b=$('bigimg');
-    b.onerror=function(){ if(!this.dataset.r){this.dataset.r='1'; this.src=CDN+encodeURI(x.p);} };
-    b.src=encodeURI(x.p);
-    $('cdn').value=CDN+x.p;
-    $('gh').value=RAW+x.p;
+    b.classList.remove('ok');
+    loadImg(b, x.p);
+    $('cdn').value=line(1, x.p);
+    $('ghf').value=line(2, x.p);
+    $('pgurl').value=location.origin+location.pathname;
     $('offi').href=x.u||'#';
-    $('dl').href=CDN+x.p;
+    $('dl').href=line(1, x.p);
     $('dl').setAttribute('download', (x.c==='骑士'?'rider_':x.c==='形态'?'form_':x.c==='人物'?'char_':x.c==='怪人'?'monster_':'item_')+x.i+'.webp');
     $('mask').classList.add('on'); $('sheet').classList.add('on');
     $('copycdn').onclick=function(){copy($('cdn').value,this);};
-    $('copygh').onclick=function(){copy($('gh').value,this);};
+    $('copyghf').onclick=function(){copy($('ghf').value,this);};
+    $('copypg').onclick=function(){copy($('pgurl').value,this);};
   }
   function close(){
     $('mask').classList.remove('on'); $('sheet').classList.remove('on');
